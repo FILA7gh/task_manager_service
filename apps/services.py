@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import List, Dict, Any
 
@@ -6,16 +5,17 @@ import jwt
 from fastapi import Request, HTTPException, status
 from jwt import PyJWTError
 from sqlalchemy import select
+from pydantic import UUID4
 
 from apps.config import SECRET_KEY, ALGORITHM
 from apps.database import new_session
 from apps.models import Task
-from apps.schemas import TaskGetSchema, TaskCreateSchema
+from apps.schemas import TaskGetSchema, TaskCreateSchema, TaskExecuteSchema
 
 
 class TaskService:
     @classmethod
-    async def get_tasks_by_user_id(cls, user_id: uuid.uuid4) -> List[TaskGetSchema]:
+    async def get_tasks_by_user_id(cls, user_id: UUID4) -> List[TaskGetSchema]:
         async with new_session() as session:
             query = select(Task).filter(Task.user_id == user_id)
             result = await session.execute(query)
@@ -24,7 +24,7 @@ class TaskService:
             return tasks_schemas
 
     @classmethod
-    async def get_task_by_id(cls, task_id: uuid.uuid4) -> TaskGetSchema:
+    async def get_task_by_id(cls, task_id: UUID4) -> TaskGetSchema:
         async with new_session() as session:
             query = select(Task).filter(Task.id == task_id)
             result = await session.execute(query)
@@ -33,7 +33,7 @@ class TaskService:
             return task_schema
 
     @classmethod
-    async def create_task(cls, user_id: uuid.uuid4, data: TaskCreateSchema) -> None:
+    async def create_task(cls, user_id: UUID4, data: TaskCreateSchema) -> None:
         async with new_session() as session:
             data_dict = data.model_dump()
             due_datetime = datetime.strptime(data_dict['due_datetime'], '%Y-%m-%d %H:%M:%S')
@@ -41,6 +41,38 @@ class TaskService:
             task = Task(**data_dict)
             task.user_id = user_id
             session.add(task)
+            await session.commit()
+            return None
+
+    @classmethod
+    async def update_task_status(cls, task_id: UUID4, task_status: TaskExecuteSchema) -> None:
+        async with new_session() as session:
+            query = select(Task).filter(Task.id == task_id)
+            result = await session.execute(query)
+            task = result.scalars().first()
+            if not task:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Task not found!'
+                )
+            task_status_dict = task_status.model_dump()
+            task.is_executed = task_status_dict['is_executed']
+            session.add(task)
+            await session.commit()
+            return None
+
+    @classmethod
+    async def delete_task(cls, task_id: UUID4) -> None:
+        async with new_session() as session:
+            query = select(Task).filter(Task.id == task_id)
+            result = await session.execute(query)
+            task = result.scalars().first()
+            if not task:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='Task not found!'
+                )
+            await session.delete(task)
             await session.commit()
             return None
 

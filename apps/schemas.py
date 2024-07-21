@@ -20,12 +20,5 @@ class TaskCreateSchema(BaseModel):
     due_datetime: str
 
 
-class TaskUpdateSchema(BaseModel):
-    title: str
-    description: str
-    due_datetime: str
-    is_executed: bool
-
-
 class TaskExecuteSchema(BaseModel):
     is_executed: bool

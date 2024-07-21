@@ -8,7 +8,7 @@ from apps.routes import task_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await create_tables()
+    # await create_tables()
     yield
 
 
